@@ -213,8 +213,8 @@ async def default_cmd(client: Client, message: Message):
         return
 
     await message.reply_text(
-        text=make_settings_text(),
-        reply_markup=make_settings_markup()
+        text=await make_settings_text(),
+        reply_markup=await make_settings_markup()
     )
 
 
@@ -239,7 +239,7 @@ async def setinterval_cmd(client: Client, message: Message):
 
     parts = message.text.strip().split()
     if len(parts) < 2:
-        current = get_setting("interval_seconds")
+        current = await get_setting("interval_seconds")
         await message.reply_text(
             f"⏱ **Usage:** `/setinterval <seconds>`\n\nCurrent interval: `{current}s`\n"
             "Example: `/setinterval 90`"
@@ -251,10 +251,10 @@ async def setinterval_cmd(client: Client, message: Message):
         if seconds < 5:
             await message.reply_text("❌ Interval must be at least **5 seconds**.")
             return
-        set_setting("interval_seconds", seconds)
+        await set_setting("interval_seconds", seconds)
         await message.reply_text(
-            f"✅ **Interval updated to `{seconds}s`!**\n\n" + make_settings_text(),
-            reply_markup=make_settings_markup()
+            f"✅ **Interval updated to `{seconds}s`!**\n\n" + await make_settings_text(),
+            reply_markup=await make_settings_markup()
         )
     except ValueError:
         await message.reply_text("❌ Please provide a valid integer. Example: `/setinterval 90`")
@@ -321,8 +321,8 @@ async def handle_settings_callbacks(client: Client, callback_query: CallbackQuer
     
     if data == "settings_main":
         await callback_query.message.edit_text(
-            text=make_settings_text(),
-            reply_markup=make_settings_markup()
+            text=await make_settings_text(),
+            reply_markup=await make_settings_markup()
         )
         await callback_query.answer()
 
@@ -332,46 +332,46 @@ async def handle_settings_callbacks(client: Client, callback_query: CallbackQuer
 
     elif data == "interval_settings":
         await callback_query.message.edit_text(
-            text=make_interval_text(),
-            reply_markup=make_interval_markup()
+            text=await make_interval_text(),
+            reply_markup=await make_interval_markup()
         )
         await callback_query.answer()
 
     elif data == "toggle_mode":
-        current_mode = get_setting("mode")
+        current_mode = await get_setting("mode")
         modes = ["both", "start_end", "interval", "none"]
         next_mode = modes[(modes.index(current_mode) + 1) % len(modes)]
-        set_setting("mode", next_mode)
+        await set_setting("mode", next_mode)
         
         await callback_query.message.edit_text(
-            text=make_settings_text(),
-            reply_markup=make_settings_markup()
+            text=await make_settings_text(),
+            reply_markup=await make_settings_markup()
         )
         await callback_query.answer(f"Mode set to {next_mode.upper()}")
         
     elif data == "toggle_tagging":
-        current_val = get_setting("tagging_enabled")
-        set_setting("tagging_enabled", not current_val)
+        current_val = await get_setting("tagging_enabled")
+        await set_setting("tagging_enabled", not current_val)
         
         await callback_query.message.edit_text(
-            text=make_settings_text(),
-            reply_markup=make_settings_markup()
+            text=await make_settings_text(),
+            reply_markup=await make_settings_markup()
         )
         await callback_query.answer(f"Metadata Tagging {'Enabled' if not current_val else 'Disabled'}")
         
     elif data == "adjust_interval_menu":
         await callback_query.message.edit_text(
-            text=make_interval_text(),
-            reply_markup=make_interval_markup()
+            text=await make_interval_text(),
+            reply_markup=await make_interval_markup()
         )
         await callback_query.answer()
         
     elif data == "toggle_interval_mute":
-        current_mute = bool(get_setting("interval_mute_music"))
-        set_setting("interval_mute_music", not current_mute)
+        current_mute = bool(await get_setting("interval_mute_music"))
+        await set_setting("interval_mute_music", not current_mute)
         label = "Full Stop 🔇" if not current_mute else "Mix Mode 🔊"
         await callback_query.message.edit_text(
-            text=make_interval_text(), reply_markup=make_interval_markup()
+            text=await make_interval_text(), reply_markup=await make_interval_markup()
         )
         await callback_query.answer(f"Music during jingle: {label}")
 
@@ -381,14 +381,14 @@ async def handle_settings_callbacks(client: Client, callback_query: CallbackQuer
             new_val = int(data.split("_")[-1])
         except ValueError:
             new_val = 120
-        set_setting("interval_seconds", new_val)
+        await set_setting("interval_seconds", new_val)
         await callback_query.message.edit_text(
-            text=make_interval_text(), reply_markup=make_interval_markup()
+            text=await make_interval_text(), reply_markup=await make_interval_markup()
         )
         await callback_query.answer(f"Interval set to {new_val}s")
 
     elif data.startswith("interval_add_") or data.startswith("interval_sub_"):
-        current_val = get_setting("interval_seconds")
+        current_val = await get_setting("interval_seconds")
         try:
             diff = int(data.split("_")[-1])
             if "sub" in data:
@@ -396,29 +396,29 @@ async def handle_settings_callbacks(client: Client, callback_query: CallbackQuer
         except ValueError:
             diff = 0
         new_val = max(5, current_val + diff)
-        set_setting("interval_seconds", new_val)
+        await set_setting("interval_seconds", new_val)
         await callback_query.message.edit_text(
-            text=make_interval_text(), reply_markup=make_interval_markup()
+            text=await make_interval_text(), reply_markup=await make_interval_markup()
         )
         await callback_query.answer(f"Interval set to {new_val}s")
 
     elif data == "interval_vol_add" or data == "interval_vol_sub":
-        current_vol = float(get_setting("interval_volume"))
+        current_vol = float(await get_setting("interval_volume"))
         delta = 0.1 if data == "interval_vol_add" else -0.1
         new_vol = round(max(0.0, min(1.0, current_vol + delta)), 1)
-        set_setting("interval_volume", new_vol)
+        await set_setting("interval_volume", new_vol)
         await callback_query.message.edit_text(
-            text=make_interval_text(), reply_markup=make_interval_markup()
+            text=await make_interval_text(), reply_markup=await make_interval_markup()
         )
         await callback_query.answer(f"Volume set to {new_vol:.1f}")
 
     elif data == "interval_fade_add" or data == "interval_fade_sub":
-        current_fade = int(get_setting("interval_fade_ms"))
+        current_fade = int(await get_setting("interval_fade_ms"))
         delta = 100 if data == "interval_fade_add" else -100
         new_fade = max(0, min(2000, current_fade + delta))
-        set_setting("interval_fade_ms", new_fade)
+        await set_setting("interval_fade_ms", new_fade)
         await callback_query.message.edit_text(
-            text=make_interval_text(), reply_markup=make_interval_markup()
+            text=await make_interval_text(), reply_markup=await make_interval_markup()
         )
         await callback_query.answer(f"Fade set to {new_fade}ms")
         
@@ -502,10 +502,10 @@ async def handle_replies(client: Client, message: Message):
         if new_val == "/cancel":
             await message.reply_text("❌ Action cancelled.")
             return
-        set_setting("tag_artist", new_val)
+        await set_setting("tag_artist", new_val)
         await message.reply_text(
-            f"✅ **Artist Tag updated!**\nNew value: `{new_val}`\n\n" + make_settings_text(),
-            reply_markup=make_settings_markup()
+            f"✅ **Artist Tag updated!**\nNew value: `{new_val}`\n\n" + await make_settings_text(),
+            reply_markup=await make_settings_markup()
         )
         
     elif "Edit Title Suffix" in reply.text:
@@ -513,8 +513,8 @@ async def handle_replies(client: Client, message: Message):
         if new_val == "/cancel":
             await message.reply_text("❌ Action cancelled.")
             return
-        set_setting("tag_title_suffix", new_val)
+        await set_setting("tag_title_suffix", new_val)
         await message.reply_text(
-            f"✅ **Title Suffix updated!**\nNew value: `{new_val}`\n\n" + make_settings_text(),
-            reply_markup=make_settings_markup()
+            f"✅ **Title Suffix updated!**\nNew value: `{new_val}`\n\n" + await make_settings_text(),
+            reply_markup=await make_settings_markup()
         )
