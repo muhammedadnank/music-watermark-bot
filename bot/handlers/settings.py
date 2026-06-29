@@ -31,27 +31,41 @@ def make_settings_text() -> str:
     tagging_enabled = settings.get("tagging_enabled", True)
     tag_artist = settings.get("tag_artist", "@PFMXBOT")
     tag_title_suffix = settings.get("tag_title_suffix", " @PFMXBOT")
-    
-    jingle_status = "Default (jingle.mp3)"
-    for ext in [".mp3", ".m4a"]:
-        if os.path.exists(f"custom_jingle{ext}"):
-            jingle_status = f"Custom (custom_jingle{ext})"
-            break
-
     interval_volume = settings.get("interval_volume", 0.7)
     interval_fade_ms = settings.get("interval_fade_ms", 300)
+    mute = settings.get("interval_mute_music", False)
+
+    jingle_status = "🎵 Default (jingle.mp3)"
+    for ext in [".mp3", ".m4a"]:
+        if os.path.exists(f"custom_jingle{ext}"):
+            jingle_status = f"✨ Custom (custom_jingle{ext})"
+            break
+
+    mode_icons = {
+        "both": "🔁", "start_end": "🎬", "interval": "⏱", "none": "🚫"
+    }
+    mode_icon = mode_icons.get(mode, "🔧")
+    mute_label = "🔇 Full Stop" if mute else "🔊 Mix"
+    tagging_label = "✅ Enabled" if tagging_enabled else "❌ Disabled"
 
     return (
-        "⚙️ **Music Watermark Bot Configuration**\n\n"
-        f"• **Watermark Mode**: `{mode.upper()}`\n"
-        f"  _Options: BOTH, START_END, INTERVAL, NONE_\n"
-        f"• **Interval**: `{interval}s` | **Volume**: `{interval_volume:.1f}` | **Fade**: `{interval_fade_ms}ms`\n"
-        f"  _Delay, mix level and smooth fade for interval overlays_\n\n"
-        f"• **Metadata Tagging**: `{'Enabled' if tagging_enabled else 'Disabled'}`\n"
-        f"• **Artist Tag**: `{tag_artist or 'None'}`\n"
-        f"• **Title Suffix**: `{tag_title_suffix or 'None'}`\n\n"
-        f"• **Current Jingle**: `{jingle_status}`\n\n"
-        "👇 _Use the buttons below to modify settings:_ "
+        "⚙️ **Watermark Bot — Settings**\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "🎚 **Watermark Mode**\n"
+        f"  {mode_icon} `{mode.upper()}`\n\n"
+        "⏱ **Interval Settings**\n"
+        f"  ┣ Every: `{interval}s`\n"
+        f"  ┣ Mode: {mute_label}\n"
+        f"  ┣ Volume: `{interval_volume:.1f}`  Fade: `{interval_fade_ms}ms`\n"
+        f"  ┗ _Active for `INTERVAL` and `BOTH` modes_\n\n"
+        "🏷 **Metadata Tagging**\n"
+        f"  ┣ Status: {tagging_label}\n"
+        f"  ┣ Artist: `{tag_artist or 'Not set'}`\n"
+        f"  ┗ Title Suffix: `{tag_title_suffix or 'None'}`\n\n"
+        "🎵 **Jingle**\n"
+        f"  {jingle_status}\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "_Use buttons below to configure:_"
     )
 
 
@@ -60,23 +74,29 @@ def make_settings_markup() -> InlineKeyboardMarkup:
     mode = settings.get("mode", "both")
     interval = settings.get("interval_seconds", 120)
     tagging_enabled = settings.get("tagging_enabled", True)
-    
-    tagging_text = "Enabled ✅" if tagging_enabled else "Disabled ❌"
-    
+
+    mode_icons = {"both": "🔁", "start_end": "🎬", "interval": "⏱", "none": "🚫"}
+    mode_icon = mode_icons.get(mode, "🔧")
+    tagging_icon = "✅" if tagging_enabled else "❌"
+
     keyboard = [
         [
-            InlineKeyboardButton(f"🔄 Mode: {mode.upper()}", callback_data="toggle_mode"),
-            InlineKeyboardButton(f"⏱ Interval: {interval}s", callback_data="adjust_interval_menu")
+            InlineKeyboardButton(f"{mode_icon} Mode: {mode.upper()}", callback_data="toggle_mode"),
         ],
         [
-            InlineKeyboardButton(f"🏷 Metadata Tagging: {tagging_text}", callback_data="toggle_tagging")
+            InlineKeyboardButton(f"⏱ Interval: {interval}s", callback_data="adjust_interval_menu"),
+            InlineKeyboardButton("🎛 Jingle Mix", callback_data="interval_settings")
         ],
         [
-            InlineKeyboardButton("👤 Edit Artist Tag", callback_data="edit_artist"),
-            InlineKeyboardButton("✍️ Edit Title Suffix", callback_data="edit_suffix")
+            InlineKeyboardButton(f"🏷 Tagging: {tagging_icon}", callback_data="toggle_tagging"),
+            InlineKeyboardButton("👤 Artist Tag", callback_data="edit_artist"),
         ],
         [
-            InlineKeyboardButton("🎵 Jingle Settings", callback_data="jingle_menu")
+            InlineKeyboardButton("✍️ Title Suffix", callback_data="edit_suffix"),
+            InlineKeyboardButton("🎵 Jingle", callback_data="jingle_menu")
+        ],
+        [
+            InlineKeyboardButton("❌ Close", callback_data="close_settings")
         ]
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -87,15 +107,18 @@ def make_interval_text() -> str:
     volume = get_setting("interval_volume")
     fade_ms = get_setting("interval_fade_ms")
     mute = get_setting("interval_mute_music")
-    mute_label = "🔇 FULL STOP" if mute else "🔊 MIX (overlay)"
+    mute_label = "🔇 Full Stop (pauses music)" if mute else "🔊 Mix (overlay music)"
     return (
-        "⏱ **Interval Watermark Settings**\n\n"
-        f"• **Interval**: `{interval}s`  — how often the jingle plays\n"
-        f"• **Music During Jingle**: `{mute_label}`\n"
-        f"• **Volume** _(mix mode only)_: `{volume:.1f}`\n"
-        f"• **Fade**: `{fade_ms}ms`  — fade-in/out for smooth blending\n\n"
-        "_Applies to both `INTERVAL` and `BOTH` modes._\n"
-        "Tip: Use `/setinterval <seconds>` for exact interval control."
+        "🎛 **Interval & Jingle Mix Settings**\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"⏱ **Interval:** `{interval}s`\n"
+        f"  _How often the jingle repeats_\n\n"
+        f"🎚 **Mode:** {mute_label}\n"
+        f"  _Full Stop = music pauses during jingle_\n\n"
+        f"🔊 **Volume** _(Mix mode only)_: `{volume:.1f}`\n"
+        f"🌊 **Fade:** `{fade_ms}ms` _(smooth in/out)_\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "_Active for `INTERVAL` and `BOTH` modes only._"
     )
 
 
@@ -141,16 +164,18 @@ def make_jingle_text() -> str:
     jingle_status = "Default (jingle.mp3)"
     for ext in [".mp3", ".m4a"]:
         if os.path.exists(f"custom_jingle{ext}"):
-            jingle_status = f"Custom (custom_jingle{ext})"
+            jingle_status = f"✨ Custom — `custom_jingle{ext}`"
             break
-            
+
     return (
-        "🎵 **Jingle Configuration**\n\n"
-        f"• **Status**: `{jingle_status}`\n\n"
-        "How to upload a custom jingle:\n"
-        "1. Send the audio/voice clip to the bot.\n"
-        "2. Reply to that audio file with `/setjingle`.\n"
-        "3. The bot will download and register it as the watermark."
+        "🎵 **Jingle Configuration**\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"📌 **Status:** `{jingle_status}`\n\n"
+        "📂 **How to set a custom jingle:**\n"
+        "┣ 1. Send your MP3 or M4A clip to the bot\n"
+        "┣ 2. Reply to that audio with `/setjingle`\n"
+        "┗ The bot registers it as the active watermark\n\n"
+        "━━━━━━━━━━━━━━━━━━━━"
     )
 
 
@@ -181,7 +206,10 @@ def make_jingle_markup() -> InlineKeyboardMarkup:
 @Client.on_message(filters.command(["default", "settings"]))
 async def default_cmd(client: Client, message: Message):
     if not message.from_user or message.from_user.id not in OWNER_IDS:
-        await message.reply_text("❌ **Access Denied!**\nYou are not authorized to use this bot.")
+        await message.reply_text(
+            "🚫 **Access Denied**\n"
+            "You are not authorized to use this bot."
+        )
         return
 
     await message.reply_text(
@@ -288,7 +316,18 @@ async def handle_settings_callbacks(client: Client, callback_query: CallbackQuer
             reply_markup=make_settings_markup()
         )
         await callback_query.answer()
-        
+
+    elif data == "close_settings":
+        await callback_query.message.delete()
+        await callback_query.answer("✔️ Settings closed")
+
+    elif data == "interval_settings":
+        await callback_query.message.edit_text(
+            text=make_interval_text(),
+            reply_markup=make_interval_markup()
+        )
+        await callback_query.answer()
+
     elif data == "toggle_mode":
         current_mode = get_setting("mode")
         modes = ["both", "start_end", "interval", "none"]

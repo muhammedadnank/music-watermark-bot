@@ -28,7 +28,10 @@ from utils import (
 async def handle_audio(client: Client, message: Message):
     from config import OWNER_IDS
     if not message.from_user or message.from_user.id not in OWNER_IDS:
-        await message.reply_text("❌ **Access Denied!**\nYou are not authorized to use this bot.")
+        await message.reply_text(
+            "🚫 **Access Denied**\n"
+            "This is a private bot. You are not authorized."
+        )
         return
 
     media = message.audio or message.document
@@ -39,18 +42,25 @@ async def handle_audio(client: Client, message: Message):
 
     if not is_supported(filename):
         await message.reply_text(
-            "❌ Only **.mp3** and **.m4a** files are supported right now."
+            "⚠️ **Unsupported Format**\n\n"
+            "Only **MP3** and **M4A** files are accepted.\n"
+            "Please convert your file and try again."
         )
         return
 
     size_mb = (media.file_size or 0) / (1024 * 1024)
     if size_mb > MAX_FILE_SIZE_MB:
         await message.reply_text(
-            f"❌ File too big ({size_mb:.1f}MB). Max allowed is {MAX_FILE_SIZE_MB}MB."
+            f"⚠️ **File Too Large**\n\n"
+            f"Your file is `{size_mb:.1f} MB`.\n"
+            f"Maximum allowed size is `{MAX_FILE_SIZE_MB} MB`."
         )
         return
 
-    status = await message.reply_text("⬇️ Downloading...")
+    status = await message.reply_text(
+        "📥 **Receiving your file...**\n"
+        "━━━━━━━━━━━━━━━━━━━━"
+    )
 
     job_id = uuid.uuid4().hex[:8]
     job_dir = os.path.join(TEMP_DIR, job_id)
@@ -72,7 +82,11 @@ async def handle_audio(client: Client, message: Message):
         download_time = time.time() - download_start
 
         # Extract tags and thumbnail/album art
-        await status.edit_text("⚙️ Extracting metadata...")
+        await status.edit_text(
+            "🔍 **Reading metadata...**\n"
+            "━━━━━━━━━━━━━━━━━━━━"
+        )
+
         
         performer = None
         title = None
@@ -100,23 +114,32 @@ async def handle_audio(client: Client, message: Message):
 
         thumb_path = await extract_thumbnail(client, media, job_dir, input_path)
 
-        # Get active mode description for status message
         mode = get_setting("mode")
-        mode_text = {
-            "both": "start/end + intervals",
-            "start_end": "start + end only",
-            "interval": "intervals only",
-            "none": "no watermark (metadata update)"
+        mode_label = {
+            "both": "🔁 Both (Start/End + Intervals)",
+            "start_end": "🎬 Start & End",
+            "interval": "⏱ Intervals",
+            "none": "🚫 No Watermark"
         }.get(mode, mode)
 
-        # Start watermark timer
-        await status.edit_text(f"🎛 Adding watermark ({mode_text})...")
+        mute = get_setting("interval_mute_music")
+        if mode in ("interval", "both") and mute:
+            mode_label += " 🔇"
+
+        await status.edit_text(
+            f"🎛 **Applying Watermark...**\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"Mode: {mode_label}"
+        )
         watermark_start = time.time()
 
         # Start background timer updater for watermark step
         stop_event = asyncio.Event()
         updater_task = asyncio.create_task(
-            update_watermark_status(status, watermark_start, stop_event, f"🎛 Adding watermark ({mode_text})")
+            update_watermark_status(status, watermark_start, stop_event,
+                                    f"🎛 **Applying Watermark...**\n"
+                                    f"━━━━━━━━━━━━━━━━━━━━\n"
+                                    f"Mode: {mode_label}")
         )
         try:
             await add_watermark(input_path, output_path, title=title, artist=performer)
@@ -127,7 +150,10 @@ async def handle_audio(client: Client, message: Message):
         watermark_time = time.time() - watermark_start
 
         # Start upload timer and upload with progress
-        await status.edit_text("⬆️ Uploading watermarked file...")
+        await status.edit_text(
+            "📤 **Uploading your file...**\n"
+            "━━━━━━━━━━━━━━━━━━━━"
+        )
         upload_start = time.time()
         last_update = [time.time()]
 
@@ -138,16 +164,23 @@ async def handle_audio(client: Client, message: Message):
         # Get final duration
         duration = await get_audio_duration(final_output_path)
 
+        total_time = time.time() - download_start
+        upload_time = time.time() - upload_start
+
         await message.reply_audio(
             audio=final_output_path,
             caption=(
-                f"✅ **Watermarked Successfully!**\n\n"
-                f"⚙️ **Mode**: `{mode_text}`\n"
-                f"⏱ **Time breakdown:**\n"
-                f"• Download: `{download_time:.1f}s`\n"
-                f"• Watermark: `{watermark_time:.1f}s`\n"
-                f"• Upload: `{time.time() - upload_start:.1f}s`\n"
-                f"• Total: `{time.time() - download_start:.1f}s`"
+                f"✅ **Done! Watermark Applied**\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"🎵 **{title}**\n"
+                f"👤 {performer}\n\n"
+                f"🔧 **Mode:** {mode_label}\n\n"
+                f"⏱ **Processing Time:**\n"
+                f"┣ 📥 Download: `{download_time:.1f}s`\n"
+                f"┣ 🎛 Watermark: `{watermark_time:.1f}s`\n"
+                f"┣ 📤 Upload: `{upload_time:.1f}s`\n"
+                f"┗ ⚡ Total: `{total_time:.1f}s`\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━"
             ),
             duration=duration,
             performer=performer,
@@ -159,9 +192,17 @@ async def handle_audio(client: Client, message: Message):
         await status.delete()
 
     except WatermarkError as e:
-        await status.edit_text(f"❌ Watermarking failed:\n`{e}`")
+        await status.edit_text(
+            f"❌ **Watermarking Failed**\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"`{e}`"
+        )
     except Exception as e:
-        await status.edit_text(f"❌ Unexpected error:\n`{e}`")
+        await status.edit_text(
+            f"⚠️ **Unexpected Error**\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"`{e}`"
+        )
     finally:
         # Cleanup temp directory regardless of outcome
         if os.path.exists(job_dir):
