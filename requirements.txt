@@ -3,3 +3,4 @@ TgCrypto>=1.2.5
 aiohttp>=3.9.0
 python-dotenv>=1.0.0
 pymongo[srv]>=4.6.0
+motor>=3.3.0
