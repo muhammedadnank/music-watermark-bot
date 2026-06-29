@@ -22,11 +22,12 @@ def is_supported(filename: str) -> bool:
     return get_extension(filename) in SUPPORTED_EXTENSIONS
 
 
-def _jingle_chain(label_in: str, label_out: str, fade_s: float) -> str:
+def _jingle_chain(label_in: str, label_out: str, fade_s: float, jingle_dur: float) -> str:
     """Build a filter chain for a single jingle copy: resample + fade."""
     chain = f"{label_in}aresample=44100,aformat=channel_layouts=stereo"
     if fade_s > 0:
-        chain += f",afade=t=in:st=0:d={fade_s},afade=t=out:st=0:d={fade_s}:eval=once"
+        fade_out_st = max(0.0, jingle_dur - fade_s)
+        chain += f",afade=t=in:st=0:d={fade_s},afade=t=out:st={fade_out_st}:d={fade_s}"
     return chain + label_out
 
 
@@ -53,12 +54,12 @@ def _build_mute_filter(intervals: list, jingle_dur: float, fade_s: float,
 
     if total_jingles == 1:
         # Only one jingle needed, use stream directly
-        filter_parts.append(_jingle_chain("[0:a]", "[jr0]", fade_s))
+        filter_parts.append(_jingle_chain("[0:a]", "[jr0]", fade_s, jingle_dur))
     else:
         raw_labels = "".join(f"[jraw{i}]" for i in range(total_jingles))
         filter_parts.append(f"[0:a]asplit={total_jingles}{raw_labels}")
         for i in range(total_jingles):
-            filter_parts.append(_jingle_chain(f"[jraw{i}]", f"[jr{i}]", fade_s))
+            filter_parts.append(_jingle_chain(f"[jraw{i}]", f"[jr{i}]", fade_s, jingle_dur))
 
     # --- Trim main audio segments ---
     prev_end = 0.0
@@ -127,6 +128,10 @@ async def add_watermark(input_path: str, output_path: str,
             f"Jingle file not found at '{jingle_path}'. Upload a custom one or check JINGLE_PATH."
         )
 
+    jingle_dur = 0.0
+    if mode != "none":
+        jingle_dur = await get_audio_duration(jingle_path)
+
     out_ext = get_extension(output_path)
     if out_ext == ".mp3":
         codec_args = ["-c:a", "libmp3lame", "-q:a", "2"]
@@ -192,7 +197,6 @@ async def add_watermark(input_path: str, output_path: str,
             ]
         elif mute_music:
             # ── Full Stop: concat segments + jingles ──────────────────────────
-            jingle_dur = await get_audio_duration(jingle_path)
             fc = _build_mute_filter(intervals, jingle_dur, fade_s,
                                     include_start_end=False)
             cmd += [
@@ -207,11 +211,12 @@ async def add_watermark(input_path: str, output_path: str,
             j_labels = "".join(f"[j{i}]" for i in range(num_j))
             fp = [f"[0:a]asplit={num_j}{j_labels}"]
             mix_in = ["[main]"]
+            fade_out_st = max(0.0, jingle_dur - fade_s)
             for i, t in enumerate(intervals):
                 fp.append(
                     f"[j{i}]aresample=44100,aformat=channel_layouts=stereo,"
                     f"afade=t=in:st=0:d={fade_s},"
-                    f"afade=t=out:st=0:d={fade_s}:eval=once,"
+                    f"afade=t=out:st={fade_out_st}:d={fade_s},"
                     f"volume={volume},adelay={t * 1000}:all=1[jd{i}]"
                 )
                 mix_in.append(f"[jd{i}]")
@@ -233,7 +238,6 @@ async def add_watermark(input_path: str, output_path: str,
 
         if mute_music:
             # ── Full Stop: start_jingle + segments + end_jingle ───────────────
-            jingle_dur = await get_audio_duration(jingle_path)
             if num_int == 0:
                 # No interval jingles → simple 3-part concat
                 fc = (
@@ -265,11 +269,12 @@ async def add_watermark(input_path: str, output_path: str,
                 fp.append("[js][main][je]concat=n=3:v=0:a=1[out]")
             else:
                 mix_in = ["[main]"]
+                fade_out_st = max(0.0, jingle_dur - fade_s)
                 for i, t in enumerate(intervals):
                     fp.append(
                         f"[j{i}]aresample=44100,aformat=channel_layouts=stereo,"
                         f"afade=t=in:st=0:d={fade_s},"
-                        f"afade=t=out:st=0:d={fade_s}:eval=once,"
+                        f"afade=t=out:st={fade_out_st}:d={fade_s},"
                         f"volume={volume},adelay={t * 1000}:all=1[jd{i}]"
                     )
                     mix_in.append(f"[jd{i}]")
