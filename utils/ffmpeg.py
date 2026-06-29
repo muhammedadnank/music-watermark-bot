@@ -113,11 +113,11 @@ async def add_watermark(input_path: str, output_path: str,
     fade_s = fade_ms / 1000.0
     mute_music = bool(settings.get("interval_mute_music", False))
 
-    # Resolve jingle path (custom upload takes priority)
-    from config import JINGLE_PATH
+    # Resolve jingle path (custom upload takes priority over default)
+    from config import JINGLE_PATH, CUSTOM_JINGLE_BASE
     jingle_path = JINGLE_PATH
     for ext in [".mp3", ".m4a"]:
-        custom_path = f"custom_jingle{ext}"
+        custom_path = f"{CUSTOM_JINGLE_BASE}{ext}"
         if os.path.exists(custom_path):
             jingle_path = custom_path
             break

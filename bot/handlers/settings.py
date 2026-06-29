@@ -12,7 +12,7 @@ from pyrogram.types import (
     ForceReply
 )
 
-from config import OWNER_IDS, JINGLE_PATH
+from config import OWNER_IDS, JINGLE_PATH, CUSTOM_JINGLE_BASE
 from utils import (
     load_settings,
     save_settings,
@@ -37,7 +37,7 @@ def make_settings_text() -> str:
 
     jingle_status = "🎵 Default (jingle.mp3)"
     for ext in [".mp3", ".m4a"]:
-        if os.path.exists(f"custom_jingle{ext}"):
+        if os.path.exists(f"{CUSTOM_JINGLE_BASE}{ext}"):
             jingle_status = f"✨ Custom (custom_jingle{ext})"
             break
 
@@ -163,7 +163,7 @@ def make_interval_markup() -> InlineKeyboardMarkup:
 def make_jingle_text() -> str:
     jingle_status = "Default (jingle.mp3)"
     for ext in [".mp3", ".m4a"]:
-        if os.path.exists(f"custom_jingle{ext}"):
+        if os.path.exists(f"{CUSTOM_JINGLE_BASE}{ext}"):
             jingle_status = f"✨ Custom — `custom_jingle{ext}`"
             break
 
@@ -182,7 +182,7 @@ def make_jingle_text() -> str:
 def make_jingle_markup() -> InlineKeyboardMarkup:
     has_custom = False
     for ext in [".mp3", ".m4a"]:
-        if os.path.exists(f"custom_jingle{ext}"):
+        if os.path.exists(f"{CUSTOM_JINGLE_BASE}{ext}"):
             has_custom = True
             break
             
@@ -279,24 +279,33 @@ async def setjingle_cmd(client: Client, message: Message):
         await message.reply_text("❌ Only **.mp3** and **.m4a** files are supported for jingles.")
         return
 
-    status = await message.reply_text("⬇️ Downloading and saving custom jingle...")
+    status = await message.reply_text(
+        "📥 **Downloading jingle...**\n"
+        "━━━━━━━━━━━━━━━━━━━━"
+    )
     try:
         # Delete existing custom jingles
         for old_ext in [".mp3", ".m4a"]:
-            old_path = f"custom_jingle{old_ext}"
+            old_path = f"{CUSTOM_JINGLE_BASE}{old_ext}"
             if os.path.exists(old_path):
                 os.remove(old_path)
 
         ext = get_extension(filename)
-        save_path = f"custom_jingle{ext}"
+        save_path = f"{CUSTOM_JINGLE_BASE}{ext}"
         
         await reply.download(file_name=save_path)
         
         await status.edit_text(
-            f"✅ **Custom jingle updated!**\nFormat: `{ext}`\nFilename: `{filename}`"
+            f"✅ **Custom jingle set!**\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"🎵 **File:** `{filename}`\n"
+            f"📂 **Saved as:** `custom_jingle{ext}`\n"
+            f"✅ Your next watermark will use this jingle!"
         )
     except Exception as e:
-        await status.edit_text(f"❌ Failed to set custom jingle:\n`{e}`")
+        await status.edit_text(
+            f"❌ **Failed to set jingle:**\n`{e}`"
+        )
 
 
 # Callback Query Handler
@@ -442,7 +451,7 @@ async def handle_settings_callbacks(client: Client, callback_query: CallbackQuer
         await callback_query.answer("Sending active jingle...")
         jingle_path = JINGLE_PATH
         for ext in [".mp3", ".m4a"]:
-            custom_path = f"custom_jingle{ext}"
+            custom_path = f"{CUSTOM_JINGLE_BASE}{ext}"
             if os.path.exists(custom_path):
                 jingle_path = custom_path
                 break
@@ -450,24 +459,27 @@ async def handle_settings_callbacks(client: Client, callback_query: CallbackQuer
         if os.path.exists(jingle_path):
             await callback_query.message.reply_audio(
                 audio=jingle_path,
-                caption=f"🎵 Current active jingle: `{os.path.basename(jingle_path)}`"
+                caption=f"🎵 **Active jingle:** `{os.path.basename(jingle_path)}`"
             )
         else:
-            await callback_query.message.reply_text("❌ No jingle file found on server.")
+            await callback_query.message.reply_text(
+                "⚠️ **No jingle found on server.**\n"
+                "Upload one via `/setjingle` or place `jingle.mp3` in the bot folder."
+            )
             
     elif data == "jingle_delete":
         deleted = False
         for ext in [".mp3", ".m4a"]:
-            custom_path = f"custom_jingle{ext}"
+            custom_path = f"{CUSTOM_JINGLE_BASE}{ext}"
             if os.path.exists(custom_path):
                 os.remove(custom_path)
                 deleted = True
         
         if deleted:
-            await callback_query.answer("Custom jingle deleted.", show_alert=True)
+            await callback_query.answer("🗑 Custom jingle deleted.", show_alert=True)
         else:
-            await callback_query.answer("No custom jingle exists.", show_alert=True)
-            
+            await callback_query.answer("No custom jingle found.", show_alert=True)
+
         await callback_query.message.edit_text(
             text=make_jingle_text(),
             reply_markup=make_jingle_markup()
