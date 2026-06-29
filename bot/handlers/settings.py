@@ -24,8 +24,8 @@ from utils import (
 
 # Text & Keyboard Builders
 
-def make_settings_text() -> str:
-    settings = load_settings()
+async def make_settings_text() -> str:
+    settings = await load_settings()
     mode = settings.get("mode", "both")
     interval = settings.get("interval_seconds", 120)
     tagging_enabled = settings.get("tagging_enabled", True)
@@ -69,8 +69,8 @@ def make_settings_text() -> str:
     )
 
 
-def make_settings_markup() -> InlineKeyboardMarkup:
-    settings = load_settings()
+async def make_settings_markup() -> InlineKeyboardMarkup:
+    settings = await load_settings()
     mode = settings.get("mode", "both")
     interval = settings.get("interval_seconds", 120)
     tagging_enabled = settings.get("tagging_enabled", True)
@@ -102,11 +102,11 @@ def make_settings_markup() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 
-def make_interval_text() -> str:
-    interval = get_setting("interval_seconds")
-    volume = get_setting("interval_volume")
-    fade_ms = get_setting("interval_fade_ms")
-    mute = get_setting("interval_mute_music")
+async def make_interval_text() -> str:
+    interval = await get_setting("interval_seconds")
+    volume = await get_setting("interval_volume")
+    fade_ms = await get_setting("interval_fade_ms")
+    mute = await get_setting("interval_mute_music")
     mute_label = "🔇 Full Stop (pauses music)" if mute else "🔊 Mix (overlay music)"
     return (
         "🎛 **Interval & Jingle Mix Settings**\n"
@@ -122,8 +122,8 @@ def make_interval_text() -> str:
     )
 
 
-def make_interval_markup() -> InlineKeyboardMarkup:
-    mute = get_setting("interval_mute_music")
+async def make_interval_markup() -> InlineKeyboardMarkup:
+    mute = await get_setting("interval_mute_music")
     mute_btn = "🔇 Music: STOP" if mute else "🔊 Music: MIX"
     keyboard = [
         # Mute toggle — most prominent
