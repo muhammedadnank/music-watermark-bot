@@ -103,10 +103,10 @@ async def handle_audio(client: Client, message: Message):
 
         # Apply settings-based metadata tagging
         from utils import get_setting
-        tagging_enabled = get_setting("tagging_enabled")
+        tagging_enabled = await get_setting("tagging_enabled")
         if tagging_enabled:
-            tag_artist = get_setting("tag_artist")
-            tag_title_suffix = get_setting("tag_title_suffix")
+            tag_artist = await get_setting("tag_artist")
+            tag_title_suffix = await get_setting("tag_title_suffix")
             if tag_artist:
                 performer = tag_artist
             if tag_title_suffix:
@@ -114,7 +114,7 @@ async def handle_audio(client: Client, message: Message):
 
         thumb_path = await extract_thumbnail(client, media, job_dir, input_path)
 
-        mode = get_setting("mode")
+        mode = await get_setting("mode")
         mode_label = {
             "both": "🔁 Both (Start/End + Intervals)",
             "start_end": "🎬 Start & End",
@@ -122,7 +122,7 @@ async def handle_audio(client: Client, message: Message):
             "none": "🚫 No Watermark"
         }.get(mode, mode)
 
-        mute = get_setting("interval_mute_music")
+        mute = await get_setting("interval_mute_music")
         if mode in ("interval", "both") and mute:
             mode_label += " 🔇"
 
