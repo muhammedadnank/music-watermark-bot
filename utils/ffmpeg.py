@@ -106,7 +106,7 @@ async def add_watermark(input_path: str, output_path: str,
     from utils.settings_manager import load_settings
     from utils.metadata import get_audio_duration
 
-    settings = load_settings()
+    settings = await load_settings()
     mode = settings.get("mode", "both")
     interval = int(settings.get("interval_seconds", 120))
     volume = float(settings.get("interval_volume", 0.7))
